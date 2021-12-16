@@ -129,7 +129,6 @@ class TreblleMiddleware(MiddlewareMixin):
 		Defualt function to handle each request
 		"""
 		thread = threading.Thread(target=self.handle_request, args=(request,))
-		thread.daemon = True
 		thread.start()
 
 	def handle_response(self, request, response):
@@ -170,7 +169,6 @@ class TreblleMiddleware(MiddlewareMixin):
 		Defualt function to handle each response
 		"""
 		thread = threading.Thread(target=self.handle_response, args=(request, response,))
-		thread.daemon = True
 		thread.start()
 
 		return response
