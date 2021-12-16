@@ -20,8 +20,8 @@ class TreblleMiddleware(MiddlewareMixin):
 	Get treblle api and project key from settings.py
 	"""
 	try:
-		treblle_api_key = settings.treblle_API_KEY
-		treblle_project_id = settings.treblle_PROJECT_ID
+		treblle_api_key = settings.TREBLLE_API_KEY
+		treblle_project_id = settings.TREBLLE_PROJECT_ID
 	except:
 		valid = False
 		if settings.DEBUG:
@@ -104,13 +104,16 @@ class TreblleMiddleware(MiddlewareMixin):
 		self.final_result['data']['request']['user_agent'] = request.META['HTTP_USER_AGENT']
 
 		x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+
 		if x_forwarded_for:
 			ip = x_forwarded_for.split(',')[0]
 		else:
 			ip = request.META.get('REMOTE_ADDR')
 		self.final_result['data']['request']['ip'] = ip
+
 		if request.headers:
 			self.final_result['data']['request']['headers'] = dict(request.headers)
+
 		if request.body:
 			try:
 				body = request.body
@@ -130,10 +133,15 @@ class TreblleMiddleware(MiddlewareMixin):
 		thread.start()
 
 	def handle_response(self, request, response):
+		"""
+		Function to handle each response
+		"""
 		self.end_time = time.time()
 		self.final_result['data']['response']['load_time'] = self.end_time - self.start_time
+
 		if response.headers:
 			self.final_result['data']['response']['headers'] = dict(response.headers)
+
 		if response.content:
 			body = response.content
 			try:
@@ -145,14 +153,17 @@ class TreblleMiddleware(MiddlewareMixin):
 				self.valid = False
 				if settings.DEBUG:
 					print(E)
-		json_body = json.dumps(self.final_result)
-		treblle_headers = {'Content-Type': 'application/json',
-						'X-API-Key': self.treblle_api_key}
+		else:
+			self.valid = False
+
 		if self.valid:
+			json_body = json.dumps(self.final_result)
+			treblle_headers = {'Content-Type': 'application/json',
+							'X-API-Key': self.treblle_api_key}
 			treblle_request = requests.post(url='https://rocknrolla.treblle.com/', data=json_body, headers=treblle_headers)
 			if settings.DEBUG:
-				print(treblle_request.status_code)
-				print(treblle_request.content)
+				print(f'Trebble response code {treblle_request.status_code}')
+				print(f'Trebble response content {treblle_request.content}')
 
 	def process_response(self, request, response):
 		"""
