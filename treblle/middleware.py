@@ -154,7 +154,6 @@ class TreblleMiddleware(MiddlewareMixin):
 		if response.content:
 			body = response.content.decode('utf-8')
 			try:
-				body = json.dumps(body)
 				body = json.loads(body)
 				self.final_result['data']['response']['size'] = len(body)
 				if isinstance(body, dict):
