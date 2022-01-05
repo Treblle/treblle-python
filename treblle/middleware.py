@@ -15,6 +15,7 @@ class TreblleMiddleware(MiddlewareMixin):
 	start_time = ''
 	end_time = ''
 	valid = True
+	hidden_json_keys = ['card_number','credit_card', 'cvv', 'expiry_date', 'number', 'pin', 'token', 'transaction_id', 'transaction_reference', 'job_name', 'hello', 'password']
 
 	"""
 	Get treblle api and project key from settings.py
@@ -27,6 +28,10 @@ class TreblleMiddleware(MiddlewareMixin):
 		if settings.DEBUG:
 			print('no treblle api key or project id in setting file')
 
+	if type(settings.TREBLLE_HIDDEN_JSON_KEYS) == list:
+		hidden_json_keys+= settings.TREBLLE_HIDDEN_JSON_KEYS
+	
+	hidden_json_keys = list(x.lower() for x in  hidden_json_keys)
 	"""
 	set structure of final_result
 	"""
@@ -112,24 +117,29 @@ class TreblleMiddleware(MiddlewareMixin):
 		self.final_result['data']['request']['ip'] = ip
 
 		if request.headers:
-			self.final_result['data']['request']['headers'] = dict(request.headers)
+			self.final_result['data']['request']['headers'] = self.go_through_json(dict(request.headers))
 
 		if request.body:
 			try:
-				body = request.body
+				body = request.body.decode('utf-8')
 				body = json.loads(body)
+				if isinstance(body, dict):
+					body = self.go_through_json(body)
+					print('dict')
+				elif isinstance(body, list):
+					body = self.go_through_list(body)
+					print(body)
 				self.final_result['data']['request']['body'] = body
-			except json.JSONDecodeError:
+			except Exception as E:
 				self.valid = False
 				if settings.DEBUG:
-					print('json decode error')
+					print(E)
 
 	def process_request(self, request):
 		"""
 		Defualt function to handle each request
 		"""
-		thread = threading.Thread(target=self.handle_request, args=(request,))
-		thread.start()
+		self.handle_request(request)
 
 	def handle_response(self, request, response):
 		"""
@@ -139,14 +149,19 @@ class TreblleMiddleware(MiddlewareMixin):
 		self.final_result['data']['response']['load_time'] = self.end_time - self.start_time
 
 		if response.headers:
-			self.final_result['data']['response']['headers'] = dict(response.headers)
+			self.final_result['data']['response']['headers'] = self.go_through_json(dict(response.headers))
 
 		if response.content:
-			body = response.content
+			body = response.content.decode('utf-8')
 			try:
-				json_body = json.loads(body)
+				body = json.dumps(body)
+				body = json.loads(body)
 				self.final_result['data']['response']['size'] = len(body)
-				self.final_result['data']['response']['body'] = json_body
+				if isinstance(body, dict):
+					body = self.go_through_json(body)
+				elif isinstance(body, list):
+					body = self.go_through_list(body)
+				self.final_result['data']['response']['body'] = body
 				self.final_result['data']['response']['code'] = response.status_code
 			except Exception as E:
 				self.valid = False
@@ -172,3 +187,30 @@ class TreblleMiddleware(MiddlewareMixin):
 		thread.start()
 
 		return response
+
+	
+	def go_through_json(self, json_example):
+		for key, value in json_example.items():
+			if isinstance(value, dict):
+				self.go_through_json(value)
+			elif isinstance(value, list):
+				try:
+					for item in value:
+						self.go_through_json(item)
+				except Exception as e:
+					for item in range(len(value)):
+						if key.lower() in self.hidden_json_keys:
+							json_example[key][item] = '*' * len(value)
+			else:
+				if key.lower() in self.hidden_json_keys:
+					json_example[key] = '*' * len(str(value))
+		return json_example
+
+	
+	def go_through_list(self, list_example):
+		for item in list_example:
+			if isinstance(item, dict):
+				self.go_through_json(item)
+			elif isinstance(item, list):
+				self.go_through_list(item)
+		return list_example
