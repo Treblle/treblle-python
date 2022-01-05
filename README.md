@@ -1,4 +1,4 @@
-# Treblle for Node
+# Treblle for Django
 
 [![Latest Version](https://img.shields.io/npm/v/treblle)](https://img.shields.io/npm/v/treblle)
 [![Total Downloads](https://img.shields.io/npm/dt/treblle)](https://img.shields.io/npm/dt/treblle)
