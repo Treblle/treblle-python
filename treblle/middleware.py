@@ -15,7 +15,8 @@ class TreblleMiddleware(MiddlewareMixin):
 	start_time = ''
 	end_time = ''
 	valid = True
-	hidden_json_keys = ['card_number','credit_card', 'cvv', 'expiry_date', 'number', 'pin', 'token', 'transaction_id', 'transaction_reference', 'job_name', 'hello', 'password']
+	hidden_json_keys = ["password", "pwd", "secret", "password_confirmation", "passwordConfirmation", "cc", "card_number", "cardNumber", "ccv","ssn",
+	"credit_score", "creditScore",]
 
 	"""
 	Get treblle api and project key from settings.py
