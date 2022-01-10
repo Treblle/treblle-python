@@ -28,14 +28,14 @@ $ pip install treblle
 
 Dont forget to load the required python modules in your setting.py like so:
 
-```python
+```
 INSTALLED_APPS = [ 
 ...,    
 'treblle',
 ]
 ```
 
-```python
+```
 MIDDLEWARE_CLASSES = [
 ...,
 'treblle.middleware.TreblleMiddleware',
@@ -46,7 +46,7 @@ MIDDLEWARE_CLASSES = [
 
 Next, create a FREE account on <https://treblle.com> to get an API key and Project ID. After you have those simply initialize Treblle in your **setting.py** file like so for django:
 
-```python
+```
 TREBLLE_INFO = {
 'api_key': os.environ.get('TREBLLE_API_KEY'),
 'project_id': os.environ.get('TREBLLE_PROJECT_ID')
@@ -60,11 +60,11 @@ That's it. Your API requests and responses are now being sent to your Treblle pr
 
 If you want to expand the list of fields you want to hide, you can pass property names you want to hide by using the `TREBLLE_HIDDEN_KEYS` setting like in the example below.
 
-```python
+```
 TREBLLE_HIDDEN_KEYS = ["id", "email"]
 ```
 
-```python
+```
 TREBLLE_INFO = {
 'api_key': os.environ.get('TREBLLE_API_KEY'),
 'project_id': os.environ.get('TREBLLE_PROJECT_ID'),
