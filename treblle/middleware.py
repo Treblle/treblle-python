@@ -10,7 +10,7 @@ import json
 import threading
 
 
-class TreblleMiddleware(MiddlewareMixin):
+class TreblleMiddleware(object):
 
 	start_time = ''
 	end_time = ''
@@ -21,16 +21,16 @@ class TreblleMiddleware(MiddlewareMixin):
 	"""
 	Get treblle api and project key from settings.py
 	"""
-	try:
-		treblle_api_key = settings.TREBLLE_API_KEY
-		treblle_project_id = settings.TREBLLE_PROJECT_ID
-	except:
+	treblle_api_key = settings.TREBLLE_INFO.get('api_key', '')
+	treblle_project_id = settings.TREBLLE_INFO.get('project_id', '')
+	treblle_hidden_keys = settings.TREBLLE_INFO.get('hidden_keys', [])
+	if not treblle_project_id or not treblle_api_key:
 		valid = False
 		if settings.DEBUG:
-			print('no treblle api key or project id in setting file')
+			print('treblle', 'no treblle api key or project id in setting file')
 
-	if type(settings.TREBLLE_HIDDEN_JSON_KEYS) == list:
-		hidden_json_keys+= settings.TREBLLE_HIDDEN_JSON_KEYS
+	if type(treblle_hidden_keys) == list:
+		hidden_json_keys+= treblle_hidden_keys
 	
 	hidden_json_keys = list(x.lower() for x in  hidden_json_keys)
 	"""
@@ -87,27 +87,50 @@ class TreblleMiddleware(MiddlewareMixin):
 
 	}
 
+	def __init__(self, get_response):
+		self.get_response = get_response
+
+	
+	def __call__(self, request):
+		"""
+		Default function to handle requests and responses
+		"""
+
+		self.start_time = time.time()
+		self.final_result['data']['request']['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+		#get timestamp
+		# timestamp = 
+		response = self.get_response(request)
+		self.end_time = time.time()
+		self.final_result['data']['response']['load_time'] = self.end_time - self.start_time
+		thread = threading.Thread(target=self.handle_request_and_response, args=(request, response,))
+		thread.start()
+		return response
+	
+	def handle_request_and_response(self, request, response):
+		"""
+		Function to handle all the request and response
+		"""
+		self.handle_request(request)
+		self.handle_response(request, response)
+
 	def handle_request(self, request):
 		"""
 		Function to handle each request
-
-		param request: request object
 		"""
-		self.start_time = time.time()
-		self.final_result['data']['request']['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 		hostname = socket.gethostname()
 		host_ip = socket.gethostbyname(hostname)
 		self.final_result['data']['server']['ip'] = host_ip
 		self.final_result['data']['server']['timezone'] = settings.TIME_ZONE
 		self.final_result['data']['request']['method'] = request.method
-		self.final_result['data']['server']['software'] = request.META['SERVER_SOFTWARE']
-		self.final_result['data']['server']['protocol'] = request.META['SERVER_PROTOCOL']
+		self.final_result['data']['server']['software'] = request.META.get('SERVER_SOFTWARE', 'SERVER_SOFTWARE_NOT_FOUND')
+		self.final_result['data']['server']['protocol'] = request.META.get('SERVER_PROTOCOL', 'SERVER_PROTOCOL_NOT_FOUND')
 		self.final_result['data']['language']['version'] = '.'.join(platform.python_version_tuple())
 		self.final_result['data']['server']['os']['name'] = platform.system()
 		self.final_result['data']['server']['os']['release'] = platform.release()
 		self.final_result['data']['server']['os']['architecture'] = platform.machine()
 		self.final_result['data']['request']['url'] = request.build_absolute_uri()
-		self.final_result['data']['request']['user_agent'] = request.META['HTTP_USER_AGENT']
+		self.final_result['data']['request']['user_agent'] = request.META.get('HTTP_USER_AGENT', 'HTTP_USER_AGENT_NOT_FOUND')
 
 		x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
 
@@ -126,28 +149,17 @@ class TreblleMiddleware(MiddlewareMixin):
 				body = json.loads(body)
 				if isinstance(body, dict):
 					body = self.go_through_json(body)
-					print('dict')
 				elif isinstance(body, list):
 					body = self.go_through_list(body)
-					print(body)
 				self.final_result['data']['request']['body'] = body
 			except Exception as E:
 				self.valid = False
-				if settings.DEBUG:
-					print(E)
-
-	def process_request(self, request):
-		"""
-		Defualt function to handle each request
-		"""
-		self.handle_request(request)
+				self.treblle_print(E)
 
 	def handle_response(self, request, response):
 		"""
 		Function to handle each response
 		"""
-		self.end_time = time.time()
-		self.final_result['data']['response']['load_time'] = self.end_time - self.start_time
 
 		if response.headers:
 			self.final_result['data']['response']['headers'] = self.go_through_json(dict(response.headers))
@@ -165,8 +177,7 @@ class TreblleMiddleware(MiddlewareMixin):
 				self.final_result['data']['response']['code'] = response.status_code
 			except Exception as E:
 				self.valid = False
-				if settings.DEBUG:
-					print(E)
+				self.treblle_print(E)
 		else:
 			self.valid = False
 
@@ -175,19 +186,8 @@ class TreblleMiddleware(MiddlewareMixin):
 			treblle_headers = {'Content-Type': 'application/json',
 							'X-API-Key': self.treblle_api_key}
 			treblle_request = requests.post(url='https://rocknrolla.treblle.com/', data=json_body, headers=treblle_headers)
-			if settings.DEBUG:
-				print(f'Trebble response code {treblle_request.status_code}')
-				print(f'Trebble response content {treblle_request.content}')
-
-	def process_response(self, request, response):
-		"""
-		Defualt function to handle each response
-		"""
-		thread = threading.Thread(target=self.handle_response, args=(request, response,))
-		thread.start()
-
-		return response
-
+			self.treblle_print(f'Trebble response code {treblle_request.status_code}')
+			self.treblle_print(f'Trebble response content {treblle_request.content}')
 	
 	def go_through_json(self, json_example):
 		for key, value in json_example.items():
@@ -214,3 +214,7 @@ class TreblleMiddleware(MiddlewareMixin):
 			elif isinstance(item, list):
 				self.go_through_list(item)
 		return list_example
+
+	def treblle_print(self, print_value):
+		if settings.DEBUG:
+			print('treblle', print_value)
