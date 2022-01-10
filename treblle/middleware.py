@@ -1,4 +1,3 @@
-from django.utils.deprecation import MiddlewareMixin
 from django.conf import settings
 import json
 import time
