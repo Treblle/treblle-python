@@ -14,10 +14,6 @@ Treblle makes it super easy to understand what’s going on with your APIs and t
 
 - requests
 
-## Dependencies
-
-- [`django`](https://www.djangoproject.com/)
-
 ## Installation
 
 You can install Treblle for django via [PYPi](https://pypi.org/). Simply run the following command:
@@ -30,21 +26,21 @@ Dont forget to load the required python modules in your setting.py like so:
 
 ```
 INSTALLED_APPS = [ 
-...,    
+...
 'treblle',
 ]
 ```
 
 ```
 MIDDLEWARE_CLASSES = [
-...,
+...
 'treblle.middleware.TreblleMiddleware',
 ]
 ```
 
 # Getting started
 
-Next, create a FREE account on <https://treblle.com> to get an API key and Project ID. After you have those simply initialize Treblle in your **setting.py** file like so for django:
+Next, create a FREE account on [Treblle](https://treblle.com) to get an API key and Project ID. After you have those simply initialize Treblle in your **setting.py** file like so for django:
 
 ```
 TREBLLE_INFO = {
