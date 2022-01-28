@@ -68,6 +68,12 @@ TREBLLE_INFO = {
 }
 ```
 
+
+# releases
+0.9 - stable
+
+0.10, 0.11 - send application errors to treblle
+
 # Support
 
 If you have problems of any kind feel free to reach out via <https://treblle.com> or email vedran@treblle.com and we'll do our best to help you out.
