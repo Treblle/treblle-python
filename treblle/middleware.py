@@ -80,8 +80,7 @@ class TreblleMiddleware(object):
 				"body": {
 				}
 			},
-			"errors": [
-			]
+			"errors": []
 		}
 
 	}
@@ -97,8 +96,6 @@ class TreblleMiddleware(object):
 
 		self.start_time = time.time()
 		self.final_result['data']['request']['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-		#get timestamp
-		# timestamp = 
 		response = self.get_response(request)
 		self.end_time = time.time()
 		self.final_result['data']['response']['load_time'] = self.end_time - self.start_time
@@ -160,8 +157,25 @@ class TreblleMiddleware(object):
 		Function to handle each response
 		"""
 
-		if response.headers:
-			self.final_result['data']['response']['headers'] = self.go_through_json(dict(response.headers))
+		headers = {}
+		try:
+
+			if response.headers:
+				headers = request.headers
+
+		except Exception:
+			try:
+				if response._headers:
+					headers = response._headers
+			except Exception:
+				pass
+		
+		if headers:
+			self.final_result['data']['response']['headers'] = self.go_through_json(dict(headers))
+		else:
+			self.final_result['data']['response']['headers'] = headers
+		
+		self.final_result['data']['response']['code'] = response.status_code
 
 		if response.content:
 			body = response.content.decode('utf-8')
@@ -173,20 +187,24 @@ class TreblleMiddleware(object):
 				elif isinstance(body, list):
 					body = self.go_through_list(body)
 				self.final_result['data']['response']['body'] = body
-				self.final_result['data']['response']['code'] = response.status_code
 			except Exception as E:
-				self.valid = False
 				self.treblle_print(E)
 		else:
 			self.valid = False
 
 		if self.valid:
-			json_body = json.dumps(self.final_result)
-			treblle_headers = {'Content-Type': 'application/json',
-							'X-API-Key': self.treblle_api_key}
-			treblle_request = requests.post(url='https://rocknrolla.treblle.com/', data=json_body, headers=treblle_headers)
-			self.treblle_print(f'Trebble response code {treblle_request.status_code}')
-			self.treblle_print(f'Trebble response content {treblle_request.content}')
+			self.send_to_treblle()
+
+	def send_to_treblle(self):
+		"""
+		Function to send the data to treblle
+		"""
+		json_body = json.dumps(self.final_result)
+		treblle_headers = {'Content-Type': 'application/json',
+						'X-API-Key': self.treblle_api_key}
+		treblle_request = requests.post(url='https://rocknrolla.treblle.com/', data=json_body, headers=treblle_headers, timeout=2)
+		self.treblle_print(f'Trebble response code {treblle_request.status_code}')
+		self.treblle_print(f'Trebble response content {treblle_request.content}')
 	
 	def go_through_json(self, json_example):
 		for key, value in json_example.items():
@@ -217,3 +235,24 @@ class TreblleMiddleware(object):
 	def treblle_print(self, print_value):
 		if settings.DEBUG:
 			print('treblle', print_value)
+	
+	def process_exception(self, request, exception):
+		"""
+		default function to handle exceptions
+		"""
+		
+		trace_back = exception.__traceback__
+		trace = []
+		while trace_back is not None:
+			trace.append({
+				"filename": trace_back.tb_frame.f_code.co_filename,
+				"linenumber": trace_back.tb_lineno
+			})
+			trace_back = trace_back.tb_next
+		file_name = trace[-1]['filename']
+		line_number = trace[-1]['linenumber']
+
+		if len(self.final_result['data']['errors']) == 0 and file_name and  line_number and exception:
+			self.final_result['data']['errors'].append({'message' : str(exception), 'source' : 'onException', 'type': 'UNHANDLED_EXCEPTION', 'file': file_name, 'line': line_number})
+
+		return None

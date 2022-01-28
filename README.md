@@ -22,7 +22,7 @@ You can install Treblle for django via [PYPi](https://pypi.org/). Simply run the
 $ pip install treblle
 ```
 
-Dont forget to load the required python modules in your setting.py like so:
+Don't forget to load the required python modules in your setting.py like so:
 
 ```
 INSTALLED_APPS = [ 

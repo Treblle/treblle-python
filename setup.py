@@ -10,7 +10,7 @@ if path.exists('README.md'):
 
 setuptools.setup(
     name='treblle',
-    version='0.007',
+    version='0.010',
     install_requires=['requests'],
     long_description=long_description,
     long_description_content_type="text/markdown",
