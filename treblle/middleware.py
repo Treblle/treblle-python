@@ -217,7 +217,7 @@ class TreblleMiddleware(object):
 				except Exception as e:
 					for item in range(len(value)):
 						if key.lower() in self.hidden_json_keys:
-							json_example[key][item] = '*' * len(value)
+							json_example[key][item] = '*' * len(str(value))
 			else:
 				if key.lower() in self.hidden_json_keys:
 					json_example[key] = '*' * len(str(value))
