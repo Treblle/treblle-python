@@ -1,5 +1,9 @@
 # Treblle for Django
 
+[![Downloads](https://pepy.tech/badge/treblle)](https://pepy.tech/project/treblle)
+[![Downloads](https://pepy.tech/badge/treblle/month)](https://pepy.tech/project/treblle)
+[![Downloads](https://pepy.tech/badge/treblle/week)](https://pepy.tech/project/treblle)
+
 Treblle makes it super easy to understand what’s going on with your APIs and the apps that use them. Just by adding Treblle to your API out of the box you get:
 
 - Real-time API monitoring and logging
