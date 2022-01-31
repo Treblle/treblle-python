@@ -78,7 +78,7 @@ TREBLLE_INFO = {
 
 0.10, 0.11 - send application errors to treblle
 
-0.13 solve bug of hidden field being too long
+0.13 - solve bug of hidden field being too long
 
 # Support
 
