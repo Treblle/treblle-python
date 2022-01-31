@@ -213,11 +213,13 @@ class TreblleMiddleware(object):
 			elif isinstance(value, list):
 				try:
 					for item in value:
+						if key.lower() in self.hidden_json_keys:
+							json_example[key][item] = '*' * len(str(item))
 						self.go_through_json(item)
 				except Exception as e:
 					for item in range(len(value)):
 						if key.lower() in self.hidden_json_keys:
-							json_example[key][item] = '*' * len(str(value))
+							json_example[key][item] = '*' * len(str(item))
 			else:
 				if key.lower() in self.hidden_json_keys:
 					json_example[key] = '*' * len(str(value))
