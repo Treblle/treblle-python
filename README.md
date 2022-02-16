@@ -80,6 +80,8 @@ TREBLLE_INFO = {
 
 0.13 - solve bug of hidden field being too long
 
+0.14 - fixes
+
 # Support
 
 If you have problems of any kind feel free to reach out via <https://treblle.com> or email vedran@treblle.com and we'll do our best to help you out.

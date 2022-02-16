@@ -96,21 +96,22 @@ class TreblleMiddleware(object):
 
 		self.start_time = time.time()
 		self.final_result['data']['request']['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+		request_body = request.body
 		response = self.get_response(request)
 		self.end_time = time.time()
 		self.final_result['data']['response']['load_time'] = self.end_time - self.start_time
-		thread = threading.Thread(target=self.handle_request_and_response, args=(request, response,))
+		thread = threading.Thread(target=self.handle_request_and_response, args=(request, response, request_body))
 		thread.start()
 		return response
 	
-	def handle_request_and_response(self, request, response):
+	def handle_request_and_response(self, request, response, request_body):
 		"""
 		Function to handle all the request and response
 		"""
-		self.handle_request(request)
+		self.handle_request(request, request_body)
 		self.handle_response(request, response)
 
-	def handle_request(self, request):
+	def handle_request(self, request, request_body):
 		"""
 		Function to handle each request
 		"""
@@ -139,9 +140,9 @@ class TreblleMiddleware(object):
 		if request.headers:
 			self.final_result['data']['request']['headers'] = self.go_through_json(dict(request.headers))
 
-		if request.body:
+		if request_body:
 			try:
-				body = request.body.decode('utf-8')
+				body = request_body.decode('utf-8')
 				body = json.loads(body)
 				if isinstance(body, dict):
 					body = self.go_through_json(body)
