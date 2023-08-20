@@ -90,7 +90,7 @@ MIDDLEWARE_CLASSES = [
 ]
 ```
 
-After you've retrieved your [API Key](https://docs.treblle.com/en/dashboard#accessing-your-api-key) and [project ID](https://docs.treblle.com/en/dashboard/projects#project-id), initialize Treblle in your `settinsg.py` file like so for django:
+After you've retrieved your [API Key](https://docs.treblle.com/en/dashboard#accessing-your-api-key) and [project ID](https://docs.treblle.com/en/dashboard/projects#project-id), initialize Treblle in your `settings.py` file like so for django:
 
 ```python
 TREBLLE_INFO = {
