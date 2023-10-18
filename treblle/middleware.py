@@ -204,8 +204,8 @@ class TreblleMiddleware(object):
 		treblle_headers = {'Content-Type': 'application/json',
 						'X-API-Key': self.treblle_api_key}
 		treblle_request = requests.post(url='https://rocknrolla.treblle.com/', data=json_body, headers=treblle_headers, timeout=2)
-		self.treblle_print(f'Trebble response code {treblle_request.status_code}')
-		self.treblle_print(f'Trebble response content {treblle_request.content}')
+		self.treblle_print(f'Treblle response code {treblle_request.status_code}')
+		self.treblle_print(f'Treblle response content {treblle_request.content}')
 	
 	def go_through_json(self, json_example):
 		for key, value in json_example.items():
