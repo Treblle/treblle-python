@@ -2,3 +2,6 @@ __pycache__/
 dist/
 treblle.egg-info/
 treblle_middleware.egg-info/
+api/
+build/
+treblle_test_upload.egg-info/

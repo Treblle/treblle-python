@@ -163,7 +163,7 @@ class TreblleMiddleware(object):
 		return {
 			"api_key": self.treblle_sdk_token,
 			"project_id": self.treblle_api_key,
-			"version": "2.0.0",
+			"version": "2.0.0b1",
 			"sdk": "django",
 			"data": {
 				"server": {

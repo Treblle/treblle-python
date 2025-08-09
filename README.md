@@ -179,10 +179,21 @@ export TREBLLE_MASKED_FIELDS="api_key,password,credit_card"
 
 ### Install the SDK
 
-You can install Treblle for django via PYPi. Simply run the following command:
+You can install Treblle for django via PyPI. 
 
+**For the latest stable version:**
 ```sh
 $ pip install treblle
+```
+
+**For the v2.0 beta (recommended for new projects):**
+```sh
+$ pip install treblle==2.0.0b1
+```
+
+**For bleeding edge (pre-release versions):**
+```sh  
+$ pip install --pre treblle
 ```
 Don’t forget to load the required python modules in your settings.py like so:
 
