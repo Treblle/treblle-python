@@ -1,71 +1,68 @@
-<div align="center">
-  <img src="https://treblle-github.s3.us-east-1.amazonaws.com/github-header.jpg"/>
-</div>
-<div align="center">
+# Treblle - API Intelligence Platform
 
-# Treblle
+[![Treblle API Intelligence](https://github.com/user-attachments/assets/b268ae9e-7c8a-4ade-95da-b4ac6fce6eea)](https://treblle.com)
 
-<a href="https://docs.treblle.com/en/integrations" target="_blank">Integrations</a>
-<span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-<a href="http://treblle.com/" target="_blank">Website</a>
-<span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-<a href="https://docs.treblle.com" target="_blank">Docs</a>
-<span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-<a href="https://blog.treblle.com" target="_blank">Blog</a>
-<span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-<a href="https://twitter.com/treblleapi" target="_blank">Twitter</a>
-<span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-<a href="https://treblle.com/chat" target="_blank">Discord</a>
-<br />
-
-  <hr />
-</div>
-
-Treblle is a lightweight SDK that helps Engineering and Product teams build, ship & maintain REST based APIs faster.
-
-## Features
-
-<div align="center">
-  <br />
-  <img src="https://treblle-github.s3.amazonaws.com/features.png"/>
-  <br />
-  <br />
-</div>
-
-- [API Monitoring & Observability](https://www.treblle.com/features/api-monitoring-observability)
-- [Auto-generated API Docs](https://www.treblle.com/features/auto-generated-api-docs)
-- [API analytics](https://www.treblle.com/features/api-analytics)
-- [Treblle API Score](https://www.treblle.com/features/api-quality-score)
-- [API Lifecycle Collaboration](https://www.treblle.com/features/api-lifecycle)
-- [Native Treblle Apps](https://www.treblle.com/features/native-apps)
+[Website](http://treblle.com/) • [Documentation](https://docs.treblle.com/) • [Pricing](https://treblle.com/pricing)
 
 
-## How Treblle Works
-Once you’ve integrated a Treblle SDK in your codebase, this SDK will send requests and response data to your Treblle Dashboard.
+Treblle is an API intelligence platfom that helps developers, teams and organizations understand their APIs from a single integration point.
 
-In your Treblle Dashboard you get to see real-time requests to your API, auto-generated API docs, API analytics like how fast the response was for an endpoint, the load size of the response, etc.
+***
 
-Treblle also uses the requests sent to your Dashboard to calculate your API score which is a quality score that’s calculated based on the performance, quality, and security best practices for your API.
+## Treblle Django SDK
 
-> Visit [https://docs.treblle.com](http://docs.treblle.com) for the complete documentation.
+### Requirements
 
-## Security
+- **Python**: 3.7 or higher
+- **Django**: 2.2 or higher  
+- **requests**: 2.25.0 or higher
 
-### Masking fields
-Masking fields ensure certain sensitive data are removed before being sent to Treblle.
+> **Note**: Django 5.0+ requires Python 3.10 or higher. If you're using Django 5.x, ensure you have Python 3.10+.
 
-To make sure masking is done before any data leaves your server [we built it into all our SDKs](https://docs.treblle.com/en/security/masked-fields#fields-masked-by-default).
+### Getting Started
 
-This means data masking is super fast and happens on a programming level before the API request is sent to Treblle. You can [customize](https://docs.treblle.com/en/security/masked-fields#custom-masked-fields) exactly which fields are masked when you’re integrating the SDK.
+You can install Treblle for django via PyPI. 
 
-> Visit the [Masked fields](https://docs.treblle.com/en/security/masked-fields) section of the [docs](https://docs.sailscasts.com) for the complete documentation.
+**For the latest stable version:**
+```sh
+$ pip install treblle
+```
 
+Don’t forget to load the required python modules in your settings.py like so:
 
-## Version 2.0 - Major Update 🚀
+```python
+INSTALLED_APPS = [
+...
+'treblle',
+]
+```
+
+```python
+MIDDLEWARE = [
+    ...
+    'treblle.middleware.TreblleMiddleware',
+]
+```
+
+Create a FREE account on [treblle.com](https://treblle.com/), copy your SDK Token and API Key from the Treblle dashboard to the `settings.py` like so:
+
+```python
+TREBLLE = {
+    'SDK_TOKEN': os.environ.get('TREBLLE_SDK_TOKEN'),
+    'API_KEY': os.environ.get('TREBLLE_API_KEY'),
+    'MASKED_FIELDS': ['custom_field', 'internal_id'],  # Optional
+    'DEBUG': True,  # Optional - enables debug logging (default: False)
+    'MAX_PAYLOAD_SIZE': 5 * 1024 * 1024,  # Optional - 5MB limit (default: 10MB)
+}
+```
+
+Visit the [Treblle Dashboard](https://platform.treblle.com/) and see requests appear in real-time.
+
+## Version 2.0 🚀
 
 **Treblle Django SDK v2.0** brings significant performance improvements, better security, and enhanced developer experience. This version has been completely rewritten with production-grade optimizations.
 
-### ✨ What's New in v2.0
+### ✨ What's New
 
 **🚀 Performance Improvements:**
 - **Thread-safe architecture** - No more race conditions or memory leaks
@@ -85,7 +82,7 @@ This means data masking is super fast and happens on a programming level before 
 - **OpenAPI route patterns** - Proper route path detection and formatting
 - **Load balancing** - Random endpoint selection across Treblle infrastructure
 
-### 🔄 Breaking Changes - Migration Required
+### 🔄 Migrating from v1 to v2
 
 If you're upgrading from v1, you'll need to make these changes:
 
@@ -94,8 +91,8 @@ If you're upgrading from v1, you'll need to make these changes:
 **❌ Old v1 Format:**
 ```python
 TREBLLE_INFO = {
-    'api_key': 'your_sdk_token',      # Confusing naming
-    'project_id': 'your_api_key',     # Confusing naming
+    'api_key': 'your_sdk_token',
+    'project_id': 'your_api_key',
     'hidden_keys': ['password']
 }
 ```
@@ -103,11 +100,11 @@ TREBLLE_INFO = {
 **✅ New v2 Format:**
 ```python
 TREBLLE = {
-    'SDK_TOKEN': 'your_sdk_token',     # Clear naming
-    'API_KEY': 'your_api_key',         # Clear naming  
-    'MASKED_FIELDS': ['password'],     # Django-style naming
-    'DEBUG': True,                     # New debug mode
-    'MAX_PAYLOAD_SIZE': 10485760,      # New payload limits
+    'SDK_TOKEN': 'your_sdk_token',
+    'API_KEY': 'your_api_key',
+    'MASKED_FIELDS': ['password'], # Optional
+    'DEBUG': False, # Optional
+    'MAX_PAYLOAD_SIZE': 10485760, # Optional
 }
 ```
 
@@ -142,86 +139,8 @@ export TREBLLE_MASKED_FIELDS="api_key,password,credit_card"
 - ✅ All v1 functionality preserved
 - ✅ No immediate migration required (but recommended)
 
-### 📊 Performance Comparison
-
-| Metric | v1.x | v2.0 | Improvement |
-|--------|------|------|-------------|
-| Memory Usage | High (leaks) | Low (optimized) | ~60% reduction |
-| Request Overhead | 100-200ms | 10-50ms | ~75% faster |
-| Django Startup | Slow | Fast | ~50% faster |
-| Thread Safety | ❌ Race conditions | ✅ Fully safe | Production ready |
-| Large Payloads | ❌ Memory issues | ✅ Protected | Stable under load |
-
-### 🚀 Recommended Migration Steps
-
-1. **Update configuration** to new `TREBLLE` format
-2. **Enable debug mode** during migration: `'DEBUG': True`
-3. **Test thoroughly** in your staging environment
-4. **Monitor logs** for any configuration issues
-5. **Update Django middleware** setting if using `MIDDLEWARE_CLASSES`
-
-### 📋 Migration Checklist
-
-- [ ] Update settings from `TREBLLE_INFO` to `TREBLLE`
-- [ ] Change `MIDDLEWARE_CLASSES` to `MIDDLEWARE` (if applicable)
-- [ ] Test in staging environment with `DEBUG: True`
-- [ ] Verify all API endpoints are tracked correctly
-- [ ] Check that sensitive fields are properly masked
-- [ ] Monitor performance improvements in production
 
 ---
-
-## Get Started
-
-1. Sign in to [Treblle](https://app.treblle.com).
-2. [Create a Treblle project](https://docs.treblle.com/en/dashboard/projects#creating-a-project).
-3. [Setup the SDK](#install-the-SDK) for your platform.
-
-### Install the SDK
-
-You can install Treblle for django via PyPI. 
-
-**For the latest stable version:**
-```sh
-$ pip install treblle
-```
-
-**For the v2.0 beta (recommended for new projects):**
-```sh
-$ pip install treblle==2.0.0b1
-```
-
-**For bleeding edge (pre-release versions):**
-```sh  
-$ pip install --pre treblle
-```
-Don’t forget to load the required python modules in your settings.py like so:
-
-```python
-INSTALLED_APPS = [
-...
-'treblle',
-]
-```
-
-```python
-MIDDLEWARE_CLASSES = [
-...
-'treblle.middleware.TreblleMiddleware',
-]
-```
-
-After you've retrieved your SDK Token and API Key from your Treblle dashboard, initialize Treblle in your `settings.py` file like so for Django:
-
-```python
-TREBLLE = {
-    'SDK_TOKEN': os.environ.get('TREBLLE_SDK_TOKEN'),
-    'API_KEY': os.environ.get('TREBLLE_API_KEY'),
-    'MASKED_FIELDS': ['custom_field', 'internal_id'],  # Optional
-    'DEBUG': True,  # Optional - enables debug logging (default: False)
-    'MAX_PAYLOAD_SIZE': 5 * 1024 * 1024,  # Optional - 5MB limit (default: 10MB)
-}
-```
 
 ### Debug Mode
 
@@ -268,64 +187,21 @@ TREBLLE_INFO = {
 ```
 > See the [docs](https://docs.treblle.com/en/integrations/django) for this SDK to learn more.
 
-## Available SDKs
+### Getting Help
 
-Treblle provides [open-source SDKs](https://docs.treblle.com/en/integrations) that let you seamlessly integrate Treblle with your REST-based APIs.
+If you continue to experience issues:
 
-- [`treblle-laravel`](https://github.com/Treblle/treblle-laravel): SDK for Laravel
-- [`treblle-php`](https://github.com/Treblle/treblle-php): SDK for PHP
-- [`treblle-symfony`](https://github.com/Treblle/treblle-symfony): SDK for Symfony
-- [`treblle-lumen`](https://github.com/Treblle/treblle-lumen): SDK for Lumen
-- [`treblle-sails`](https://github.com/Treblle/treblle-sails): SDK for Sails
-- [`treblle-adonisjs`](https://github.com/Treblle/treblle-adonisjs): SDK for AdonisJS
-- [`treblle-fastify`](https://github.com/Treblle/treblle-fastify): SDK for Fastify
-- [`treblle-directus`](https://github.com/Treblle/treblle-directus): SDK for Directus
-- [`treblle-strapi`](https://github.com/Treblle/treblle-strapi): SDK for Strapi
-- [`treblle-express`](https://github.com/Treblle/treblle-express): SDK for Express
-- [`treblle-koa`](https://github.com/Treblle/treblle-koa): SDK for Koa
-- [`treblle-go`](https://github.com/Treblle/treblle-go): SDK for Go
-- [`treblle-ruby`](https://github.com/Treblle/treblle-ruby): SDK for Ruby on Rails
-- [`treblle-python`](https://github.com/Treblle/treblle-python): SDK for Python/Django
+1. Enable `debug: true` and check console output
+2. Verify your SDK token and API key are correct in Treblle dashboard
+3. Test with a simple endpoint first
+4. Check [Treblle documentation](https://docs.treblle.com) for the latest updates
+5. Contact support at <https://treblle.com> or email support@treblle.com
 
-> See the [docs](https://docs.treblle.com/en/integrations) for more on SDKs and Integrations.
+## Support
 
-## Other Packages
+If you have problems of any kind feel free to reach out via <https://treblle.com> or email support@treblle.com and we'll do our best to help you out.
 
-Besides the SDKs, we also provide helpers and configuration used for SDK
-development. If you're thinking about contributing to or creating a SDK, have a look at the resources
-below:
+## License
 
-- [`treblle-utils`](https://github.com/Treblle/treblle-utils):  A set of helpers and
-  utility functions useful for the JavaScript SDKs.
-- [`php-utils`](https://github.com/Treblle/php-utils):   A set of helpers and
-  utility functions useful for the PHP SDKs.
-
-## Community 💙
-
-First and foremost: **Star and watch this repository** to stay up-to-date.
-
-Also, follow our [Blog](https://blog.treblle.com), and on [Twitter](https://twitter.com/treblleapi).
-
-You can chat with the team and other members on [Discord](https://treblle.com/chat) and follow our tutorials and other video material at [YouTube](https://youtube.com/@treblle).
-
-[![Treblle Discord](https://img.shields.io/badge/Treblle%20Discord-Join%20our%20Discord-F3F5FC?labelColor=7289DA&style=for-the-badge&logo=discord&logoColor=F3F5FC&link=https://treblle.com/chat)](https://treblle.com/chat)
-
-[![Treblle YouTube](https://img.shields.io/badge/Treblle%20YouTube-Subscribe%20on%20YouTube-F3F5FC?labelColor=c4302b&style=for-the-badge&logo=YouTube&logoColor=F3F5FC&link=https://youtube.com/@treblle)](https://youtube.com/@treblle)
-
-[![Treblle on Twitter](https://img.shields.io/badge/Treblle%20on%20Twitter-Follow%20Us-F3F5FC?labelColor=1DA1F2&style=for-the-badge&logo=Twitter&logoColor=F3F5FC&link=https://twitter.com/treblleapi)](https://twitter.com/treblleapi)
-
-### How to contribute
-
-Here are some ways of contributing to making Treblle better:
-
-- **[Try out Treblle](https://docs.treblle.com/en/introduction#getting-started)**, and let us know ways to make Treblle better for you. Let us know here on [Discord](https://treblle.com/chat).
-- Join our [Discord](https://treblle.com/chat) and connect with other members to share and learn from.
-- Send a pull request to any of our [open source repositories](https://github.com/Treblle) on Github. Check the contribution guide on the repo you want to contribute to for more details about how to contribute. We're looking forward to your contribution!
-
-### Contributors
-<!-- Replace link with the link of the SDK contributors-->
-<a href="https://github.com/Treblle/treblle-python/graphs/contributors">
-  <p align="center">
-    <img  src="https://contrib.rocks/image?repo=Treblle/treblle-python" alt="A table of avatars from the project's contributors" />
-  </p>
-</a>
+Copyright 2025, Treblle Inc. Licensed under the MIT license:
+http://www.opensource.org/licenses/mit-license.php

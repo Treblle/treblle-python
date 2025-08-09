@@ -1,20 +1,6 @@
 from django.conf import settings
 from django.urls import resolve
-try:
-	from functools import cached_property
-except ImportError:
-	# Fallback for Python < 3.8
-	def cached_property(func):
-		"""Simple cached_property implementation for older Python versions"""
-		attrname = f'_cached_{func.__name__}'
-		def wrapper(self):
-			try:
-				return getattr(self, attrname)
-			except AttributeError:
-				value = func(self)
-				setattr(self, attrname, value)
-				return value
-		return property(wrapper)
+from functools import cached_property
 import json
 import time
 import socket
@@ -26,12 +12,17 @@ import threading
 import random
 import re
 import os
+import gzip
 
 
 class TreblleMiddleware(object):
 	# Class-level cached server info (computed once, shared across instances)
 	_server_info_cache = None
 	_cache_lock = threading.Lock()
+	
+	# Class-level connection pooling (shared session across all instances)
+	_session = None
+	_session_lock = threading.Lock()
 	
 	# Default masked fields (class-level constant)
 	DEFAULT_MASKED_FIELDS = ["password", "pwd", "secret", "password_confirmation", "passwordConfirmation", "cc", "card_number", "cardNumber", "ccv","ssn", "credit_score", "creditScore"]
@@ -137,6 +128,23 @@ class TreblleMiddleware(object):
 						}
 		return cls._server_info_cache
 
+	@classmethod
+	def get_session(cls):
+		"""Get persistent HTTP session with connection pooling for better performance"""
+		if cls._session is None:
+			with cls._session_lock:
+				if cls._session is None:  # Double-check locking
+					cls._session = requests.Session()
+					# Configure connection pooling adapter
+					adapter = requests.adapters.HTTPAdapter(
+						pool_connections=3,   # Number of connection pools (one per endpoint)
+						pool_maxsize=10,      # Max connections per pool
+						max_retries=0         # Disable retries for fire-and-forget approach
+					)
+					cls._session.mount('https://', adapter)
+					cls._session.mount('http://', adapter)
+		return cls._session
+
 	def __init__(self, get_response):
 		self.get_response = get_response
 		
@@ -163,7 +171,7 @@ class TreblleMiddleware(object):
 		return {
 			"api_key": self.treblle_sdk_token,
 			"project_id": self.treblle_api_key,
-			"version": "2.0.0b1",
+			"version": "2.0.0",
 			"sdk": "django",
 			"data": {
 				"server": {
@@ -366,19 +374,47 @@ class TreblleMiddleware(object):
 
 	def send_to_treblle(self, final_result):
 		"""
-		Function to send the data to treblle
+		Function to send the data to treblle with gzip compression for faster transfer
 		"""
 		json_body = json.dumps(final_result)
-		treblle_headers = {'Content-Type': 'application/json',
-						'X-API-Key': self.treblle_sdk_token}
+		treblle_headers = {
+			'Content-Type': 'application/json',
+			'X-API-Key': self.treblle_sdk_token,
+			'Connection': 'keep-alive',
+			'Keep-Alive': 'timeout=60, max=10'
+		}
 		treblle_endpoints = [
 			'https://rocknrolla.treblle.com/',
 			'https://punisher.treblle.com/',
 			'https://sicario.treblle.com/'
 		]
 		treblle_url = random.choice(treblle_endpoints)
+		
+		# Attempt compression for faster data transfer
+		request_data = json_body
 		try:
-			treblle_request = requests.post(url=treblle_url, data=json_body, headers=treblle_headers, timeout=2)
+			# Compress JSON payload with gzip
+			compressed_data = gzip.compress(json_body.encode('utf-8'))
+			# Only use compression if it actually reduces size (usually true for JSON > 1KB)
+			if len(compressed_data) < len(json_body.encode('utf-8')):
+				request_data = compressed_data
+				treblle_headers['Content-Encoding'] = 'gzip'
+				if self.treblle_debug:
+					original_size = len(json_body.encode('utf-8'))
+					compressed_size = len(compressed_data)
+					compression_ratio = (1 - compressed_size / original_size) * 100
+					self.treblle_print(f'Payload compressed: {original_size}B → {compressed_size}B ({compression_ratio:.1f}% reduction)')
+			elif self.treblle_debug:
+				self.treblle_print('Compression skipped: no size benefit for this payload')
+		except Exception as e:
+			# Fallback to uncompressed data if compression fails
+			request_data = json_body
+			if self.treblle_debug:
+				self.treblle_print(f'Compression failed, using uncompressed data: {e}')
+		
+		try:
+			session = self.get_session()
+			treblle_request = session.post(url=treblle_url, data=request_data, headers=treblle_headers, timeout=5)
 			
 			if self.treblle_debug:
 				self.treblle_print(f'Treblle request sent to: {treblle_url}')

@@ -10,7 +10,7 @@ if path.exists('README.md'):
 
 setuptools.setup(
     name='treblle',
-    version='2.0.0b1',
+    version='2.0.0',
     author='Treblle',
     author_email='info@treblle.com',
     description='Treblle SDK for Django - API monitoring and observability',
@@ -28,6 +28,8 @@ setuptools.setup(
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Framework :: Django',
         'Framework :: Django :: 2.2',
         'Framework :: Django :: 3.0',
@@ -36,12 +38,18 @@ setuptools.setup(
         'Framework :: Django :: 4.0',
         'Framework :: Django :: 4.1',
         'Framework :: Django :: 4.2',
+        'Framework :: Django :: 5.0',
+        'Framework :: Django :: 5.1',
+        'Framework :: Django :: 5.2',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Internet :: WWW/HTTP :: HTTP Servers',
         'Topic :: System :: Monitoring',
     ],
     python_requires='>=3.7',
-    install_requires=['requests>=2.25.0', 'Django>=2.2'],
+    install_requires=[
+        'requests>=2.25.0', 
+        'Django>=2.2',
+    ],
     keywords='treblle api monitoring django middleware observability',
     project_urls={
         'Bug Reports': 'https://github.com/Treblle/treblle-python/issues',
