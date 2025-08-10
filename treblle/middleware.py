@@ -13,6 +13,56 @@ import random
 import re
 import os
 import gzip
+from concurrent.futures import ThreadPoolExecutor
+
+
+class TreblleJSONEncoder(json.JSONEncoder):
+	"""Custom JSON encoder that safely handles Django/Python objects that aren't JSON serializable"""
+	
+	def default(self, obj):
+		# Handle datetime objects
+		if hasattr(obj, 'isoformat'):  # datetime, date, time objects
+			return obj.isoformat()
+		
+		# Handle Decimal objects
+		elif hasattr(obj, '__float__'):
+			try:
+				return float(obj)
+			except (ValueError, OverflowError):
+				return str(obj)
+		
+		# Handle UUID objects
+		elif hasattr(obj, 'hex'):  # UUID has hex attribute
+			return str(obj)
+		
+		# Handle Django model instances (have _meta attribute)
+		elif hasattr(obj, '_meta'):
+			return f"<{obj.__class__.__name__}: {obj}>"
+		
+		# Handle file objects
+		elif hasattr(obj, 'read') and hasattr(obj, 'name'):
+			return f"<File: {getattr(obj, 'name', 'unknown')}>"
+		
+		# Handle bytes
+		elif isinstance(obj, bytes):
+			try:
+				return obj.decode('utf-8')
+			except UnicodeDecodeError:
+				return f"<bytes: {len(obj)} bytes>"
+		
+		# Handle sets (convert to list)
+		elif isinstance(obj, set):
+			return list(obj)
+		
+		# Handle complex numbers
+		elif isinstance(obj, complex):
+			return {'real': obj.real, 'imag': obj.imag}
+		
+		# Fallback: try to get string representation
+		try:
+			return str(obj)
+		except Exception:
+			return f"<{obj.__class__.__name__}: non-serializable>"
 
 
 class TreblleMiddleware(object):
@@ -24,24 +74,16 @@ class TreblleMiddleware(object):
 	_session = None
 	_session_lock = threading.Lock()
 	
+	# Class-level thread pool for background processing
+	_thread_pool = None
+	_thread_pool_lock = threading.Lock()
+	
 	# Default masked fields (class-level constant)
 	DEFAULT_MASKED_FIELDS = ["password", "pwd", "secret", "password_confirmation", "passwordConfirmation", "cc", "card_number", "cardNumber", "ccv","ssn", "credit_score", "creditScore"]
 	
-	# Default payload size limit (10MB in bytes)  
-	DEFAULT_MAX_PAYLOAD_SIZE = 10 * 1024 * 1024  # 10MB
+	# Payload size limit constant (10MB in bytes)
+	MAX_PAYLOAD_SIZE = 10 * 1024 * 1024  # 10MB
 	PAYLOAD_TOO_LARGE_MESSAGE = "Treblle can only capture payloads up to 10MB in size. This payload was too large to capture."
-	
-	@cached_property
-	def max_payload_size(self):
-		"""Get configurable payload size limit from settings"""
-		custom_size = self.treblle_config.get('MAX_PAYLOAD_SIZE') or self.treblle_info_config.get('max_payload_size')
-		if custom_size:
-			try:
-				return int(custom_size)
-			except (ValueError, TypeError):
-				if self.treblle_debug:
-					self.treblle_print(f"Invalid MAX_PAYLOAD_SIZE setting: {custom_size}, using default 10MB")
-		return self.DEFAULT_MAX_PAYLOAD_SIZE
 	
 	@cached_property
 	def treblle_config(self):
@@ -96,12 +138,39 @@ class TreblleMiddleware(object):
 			fields.update(field.lower().strip() for field in settings_masked_fields if field.strip())
 		
 		return fields
+	
+	@cached_property
+	def excluded_routes(self):
+		"""Lazy load excluded routes from settings"""
+		routes = self.treblle_config.get('EXCLUDED_ROUTES', []) or self.treblle_info_config.get('excluded_routes', [])
+		if isinstance(routes, list):
+			return [route.strip() for route in routes if route.strip()]
+		return []
+	
+	def should_skip_route(self, path):
+		"""Check if the current request path should be excluded from tracking"""
+		if not self.excluded_routes:
+			return False
+		
+		for pattern in self.excluded_routes:
+			# Exact match
+			if pattern == path:
+				return True
+			
+			# Wildcard pattern matching
+			if '*' in pattern:
+				# Convert pattern to simple regex: * becomes .*
+				import fnmatch
+				if fnmatch.fnmatch(path, pattern):
+					return True
+		
+		return False
 	@classmethod
 	def get_server_info(cls):
 		"""Get cached server information to avoid expensive system calls on every request"""
 		if cls._server_info_cache is None:
 			with cls._cache_lock:
-				if cls._server_info_cache is None:  # Double-check locking
+				if cls._server_info_cache is None:
 					try:
 						hostname = socket.gethostname()
 						host_ip = socket.gethostbyname(hostname)
@@ -112,9 +181,9 @@ class TreblleMiddleware(object):
 							'ip': host_ip,
 							'timezone': timezone,
 							'python_version': python_version,
-							'os_name': platform.system(),
-							'os_release': platform.release(),
-							'os_architecture': platform.machine()
+							'os_name': platform.system() or None,
+							'os_release': platform.release() or None,
+							'os_architecture': platform.machine() or None
 						}
 					except Exception:
 						# Fallback if system calls fail
@@ -122,9 +191,9 @@ class TreblleMiddleware(object):
 							'ip': 'unknown',
 							'timezone': 'UTC',
 							'python_version': '3.x',
-							'os_name': 'unknown',
-							'os_release': 'unknown',
-							'os_architecture': 'unknown'
+							'os_name': None,
+							'os_release': None,
+							'os_architecture': None
 						}
 		return cls._server_info_cache
 
@@ -144,6 +213,31 @@ class TreblleMiddleware(object):
 					cls._session.mount('https://', adapter)
 					cls._session.mount('http://', adapter)
 		return cls._session
+
+	@classmethod
+	def get_thread_pool(cls):
+		"""Get shared thread pool for background processing to prevent memory leaks"""
+		if cls._thread_pool is None:
+			with cls._thread_pool_lock:
+				if cls._thread_pool is None:  # Double-check locking
+					cls._thread_pool = ThreadPoolExecutor(
+						max_workers=10,  # Configurable limit to prevent resource exhaustion
+						thread_name_prefix="treblle-worker-"
+					)
+		return cls._thread_pool
+
+	@classmethod
+	def cleanup_resources(cls):
+		"""Cleanup shared resources - can be called during Django shutdown"""
+		with cls._thread_pool_lock:
+			if cls._thread_pool is not None:
+				cls._thread_pool.shutdown(wait=True)  # Wait for pending tasks to complete
+				cls._thread_pool = None
+		
+		with cls._session_lock:
+			if cls._session is not None:
+				cls._session.close()
+				cls._session = None
 
 	def __init__(self, get_response):
 		self.get_response = get_response
@@ -195,16 +289,17 @@ class TreblleMiddleware(object):
 					"ip": "",
 					"url": "",
 					"user_agent": "",
-					"method": "",
+					"method": "GET",
 					"headers": {},
 					"body": {},
-					"route_path": ""
+					"query": {},
+					"route_path": null
 				},
 				"response": {
 					"headers": {},
-					"code": "",
-					"size": "",
-					"load_time": "",
+					"code": 200,
+					"size": 0,
+					"load_time": 0,
 					"body": {}
 				},
 				"errors": []
@@ -217,6 +312,12 @@ class TreblleMiddleware(object):
 		"""
 		if not self.is_valid:
 			return self.get_response(request)
+		
+		# Check if route should be excluded from tracking
+		if self.should_skip_route(request.path_info):
+			if self.treblle_debug:
+				self.treblle_print(f"Skipping route: {request.path_info}")
+			return self.get_response(request)
 			
 		self.start_time = time.time()
 		request_body = request.body
@@ -227,8 +328,9 @@ class TreblleMiddleware(object):
 		final_result = self.create_payload_structure()
 		final_result['data']['request']['timestamp'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 		
-		thread = threading.Thread(target=self.handle_request_and_response, args=(request, response, request_body, final_result))
-		thread.start()
+		# Use thread pool to prevent memory leaks from unlimited thread creation
+		thread_pool = self.get_thread_pool()
+		thread_pool.submit(self.handle_request_and_response, request, response, request_body, final_result)
 		return response
 	
 	def handle_request_and_response(self, request, response, request_body, final_result):
@@ -242,12 +344,45 @@ class TreblleMiddleware(object):
 		load_time_ms = (self.end_time - self.start_time) * 1000
 		final_result['data']['response']['load_time'] = round(load_time_ms, 2)
 		
-		# Pick up any stored exceptions from process_exception method
-		if hasattr(request, '_treblle_exceptions'):
-			final_result['data']['errors'].extend(request._treblle_exceptions)
+		# Pick up any stored exceptions from process_exception method (thread-safe)
+		exceptions = getattr(request, '_treblle_exceptions', [])
+		if exceptions:
+			final_result['data']['errors'].extend(exceptions)
 		
 		# Send to Treblle
 		self.send_to_treblle(final_result)
+
+	def safe_json_dumps(self, data):
+		"""Safely serialize data to JSON with comprehensive error handling"""
+		try:
+			# First attempt with custom encoder
+			return json.dumps(data, cls=TreblleJSONEncoder, ensure_ascii=False, separators=(',', ':'))
+		except (TypeError, ValueError, RecursionError, OverflowError) as e:
+			# Log the error if debug mode is enabled
+			if self.treblle_debug:
+				self.treblle_print(f"JSON serialization failed: {type(e).__name__}: {e}")
+			
+			# Return minimal safe payload to ensure Treblle still gets some data
+			try:
+				fallback_payload = {
+					"api_key": self.treblle_sdk_token,
+					"project_id": self.treblle_api_key,
+					"version": "2.0.0",
+					"sdk": "django",
+					"data": {
+						"server": {"ip": "unknown", "timezone": "UTC", "software": None, "signature": "", "protocol": None, "os": {"name": None, "release": None, "architecture": None}},
+						"language": {"name": "python", "version": "3.x"},
+						"request": {"timestamp": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), "ip": "", "url": "", "user_agent": "", "method": "GET", "headers": {}, "body": {}, "query": {}, "route_path": None},
+						"response": {"headers": {}, "code": 200, "size": 0, "load_time": 0, "body": {}},
+						"errors": [{"message": f"JSON serialization failed: {type(e).__name__}: {str(e)}", "file": "treblle/middleware.py", "line": 0, "source": "jsonSerialization", "type": "SERIALIZATION_ERROR"}]
+					}
+				}
+				return json.dumps(fallback_payload, ensure_ascii=False, separators=(',', ':'))
+			except Exception as fallback_error:
+				# Ultimate fallback - return minimal JSON string
+				if self.treblle_debug:
+					self.treblle_print(f"Fallback JSON serialization also failed: {fallback_error}")
+				return '{"error":"critical_json_serialization_failure"}'
 
 	def handle_request(self, request, request_body, final_result):
 		"""
@@ -255,9 +390,24 @@ class TreblleMiddleware(object):
 		"""
 		# Server info is already populated from cache in create_payload_structure()
 		final_result['data']['request']['method'] = request.method
-		final_result['data']['server']['software'] = request.META.get('SERVER_SOFTWARE', 'SERVER_SOFTWARE_NOT_FOUND')
-		final_result['data']['server']['protocol'] = request.META.get('SERVER_PROTOCOL', 'SERVER_PROTOCOL_NOT_FOUND')
-		final_result['data']['request']['url'] = request.build_absolute_uri()
+		final_result['data']['server']['software'] = request.META.get('SERVER_SOFTWARE') or None
+		final_result['data']['server']['protocol'] = request.META.get('SERVER_PROTOCOL') or None
+		# Build clean URL without query parameters
+		clean_url = request.build_absolute_uri().split('?')[0]
+		final_result['data']['request']['url'] = clean_url
+		
+		# Extract and structure query parameters
+		if request.GET:
+			query_params = {}
+			for key, value_list in request.GET.lists():
+				# Handle multiple values for same key
+				if len(value_list) == 1:
+					query_params[key] = value_list[0]
+				else:
+					query_params[key] = value_list
+			final_result['data']['request']['query'] = self.mask_sensitive_data(query_params)
+		else:
+			final_result['data']['request']['query'] = {}
 		final_result['data']['request']['user_agent'] = request.META.get('HTTP_USER_AGENT', 'HTTP_USER_AGENT_NOT_FOUND')
 		
 		# Extract route path
@@ -266,13 +416,12 @@ class TreblleMiddleware(object):
 			route_pattern = resolved.route
 			if route_pattern:
 				# Convert Django URL patterns to OpenAPI format
-				# <int:id> -> {id}, <uuid:uuid> -> {uuid}, etc.
 				route_path = re.sub(r'<[^:]+:([^>]+)>', r'{\1}', str(route_pattern))
 				final_result['data']['request']['route_path'] = route_path
 			else:
-				final_result['data']['request']['route_path'] = request.path_info
+				final_result['data']['request']['route_path'] = None
 		except Exception as e:
-			final_result['data']['request']['route_path'] = request.path_info
+			final_result['data']['request']['route_path'] = None
 			if self.treblle_debug:
 				self.treblle_print(f'Could not resolve route pattern: {e}')
 
@@ -293,10 +442,10 @@ class TreblleMiddleware(object):
 
 		if request_body:
 			# Check payload size limit
-			if len(request_body) > self.max_payload_size:
+			if len(request_body) > self.MAX_PAYLOAD_SIZE:
 				final_result['data']['request']['body'] = self.PAYLOAD_TOO_LARGE_MESSAGE
 				if self.treblle_debug:
-					self.treblle_print(f"Request body too large ({len(request_body)} bytes > {self.max_payload_size} bytes), replacing with size limit message")
+					self.treblle_print(f"Request body too large ({len(request_body)} bytes > {self.MAX_PAYLOAD_SIZE} bytes), replacing with size limit message")
 			else:
 				try:
 					body = request_body.decode('utf-8')
@@ -350,33 +499,37 @@ class TreblleMiddleware(object):
 		
 		final_result['data']['response']['code'] = response.status_code
 
-		if response.content:
-			final_result['data']['response']['size'] = len(response.content)
-			
-			# Check payload size limit
-			if len(response.content) > self.max_payload_size:
-				final_result['data']['response']['body'] = self.PAYLOAD_TOO_LARGE_MESSAGE
-				if self.treblle_debug:
-					self.treblle_print(f"Response body too large ({len(response.content)} bytes > {self.max_payload_size} bytes), replacing with size limit message")
-			else:
-				try:
-					body = response.content.decode('utf-8')
-					body = json.loads(body)
-					if isinstance(body, (dict, list)):
-						body = self.mask_sensitive_data(body)
-					final_result['data']['response']['body'] = body
-				except (json.JSONDecodeError, UnicodeDecodeError):
-					# Only valid JSON is sent - ignore non-JSON response bodies
+		try:
+			if response.content:
+				final_result['data']['response']['size'] = len(response.content)
+				
+				# Check payload size limit
+				if len(response.content) > self.MAX_PAYLOAD_SIZE:
+					final_result['data']['response']['body'] = self.PAYLOAD_TOO_LARGE_MESSAGE
 					if self.treblle_debug:
-						self.treblle_print("Response body is not valid JSON, ignoring")
-		else:
+						self.treblle_print(f"Response body too large ({len(response.content)} bytes > {self.MAX_PAYLOAD_SIZE} bytes), replacing with size limit message")
+				else:
+					try:
+						body = response.content.decode('utf-8')
+						body = json.loads(body)
+						if isinstance(body, (dict, list)):
+							body = self.mask_sensitive_data(body)
+						final_result['data']['response']['body'] = body
+					except (json.JSONDecodeError, UnicodeDecodeError):
+						# Only valid JSON is sent - ignore non-JSON response bodies
+						if self.treblle_debug:
+							self.treblle_print("Response body is not valid JSON, ignoring")
+			else:
+				final_result['data']['response']['size'] = 0
+		except Exception:
+			# Default to 0 if we can't calculate response size for any reason
 			final_result['data']['response']['size'] = 0
 
 	def send_to_treblle(self, final_result):
 		"""
 		Function to send the data to treblle with gzip compression for faster transfer
 		"""
-		json_body = json.dumps(final_result)
+		json_body = self.safe_json_dumps(final_result)
 		treblle_headers = {
 			'Content-Type': 'application/json',
 			'X-API-Key': self.treblle_sdk_token,

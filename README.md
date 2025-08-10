@@ -28,7 +28,7 @@ You can install Treblle for django via PyPI.
 $ pip install treblle
 ```
 
-Don’t forget to load the required python modules in your settings.py like so:
+Don’t forget to load the required python modules in your `settings.py` like so:
 
 ```python
 INSTALLED_APPS = [
@@ -44,15 +44,15 @@ MIDDLEWARE = [
 ]
 ```
 
-Create a FREE account on [treblle.com](https://treblle.com/), copy your SDK Token and API Key from the Treblle dashboard to the `settings.py` like so:
+Create a FREE account on [treblle.com](https://treblle.com/), copy your SDK Token and API Key from the Treblle Dashboard to `settings.py` like so:
 
 ```python
 TREBLLE = {
     'SDK_TOKEN': os.environ.get('TREBLLE_SDK_TOKEN'),
     'API_KEY': os.environ.get('TREBLLE_API_KEY'),
-    'MASKED_FIELDS': ['custom_field', 'internal_id'],  # Optional
+    'MASKED_FIELDS': ['custom_field', 'internal_id'],  # Optional - additonal fields to mask
     'DEBUG': True,  # Optional - enables debug logging (default: False)
-    'MAX_PAYLOAD_SIZE': 5 * 1024 * 1024,  # Optional - 5MB limit (default: 10MB)
+    'EXCLUDED_ROUTES': ['/health/', '/ping', '/admin/*'],  # Optional - routes to exclude from tracking
 }
 ```
 
@@ -61,26 +61,6 @@ Visit the [Treblle Dashboard](https://platform.treblle.com/) and see requests ap
 ## Version 2.0 🚀
 
 **Treblle Django SDK v2.0** brings significant performance improvements, better security, and enhanced developer experience. This version has been completely rewritten with production-grade optimizations.
-
-### ✨ What's New
-
-**🚀 Performance Improvements:**
-- **Thread-safe architecture** - No more race conditions or memory leaks
-- **Server info caching** - 50-100ms faster per request by caching system calls
-- **Lazy configuration loading** - Faster Django startup time
-- **Payload size limits** - Protection against large payloads (configurable, default 10MB)
-- **Memory optimizations** - Efficient data masking and processing
-
-**🔒 Enhanced Security:**
-- **Environment variable support** - `TREBLLE_MASKED_FIELDS` ENV variable
-- **Improved data masking** - More efficient and comprehensive field masking
-- **Robust error handling** - Better exception capture and processing
-
-**🛠️ Developer Experience:**
-- **Comprehensive debug mode** - Detailed logging for troubleshooting
-- **Better configuration** - Cleaner Django-native settings format
-- **OpenAPI route patterns** - Proper route path detection and formatting
-- **Load balancing** - Random endpoint selection across Treblle infrastructure
 
 ### 🔄 Migrating from v1 to v2
 
@@ -104,7 +84,7 @@ TREBLLE = {
     'API_KEY': 'your_api_key',
     'MASKED_FIELDS': ['password'], # Optional
     'DEBUG': False, # Optional
-    'MAX_PAYLOAD_SIZE': 10485760, # Optional
+    'EXCLUDED_ROUTES': ['/health/', '/ping'], # Optional
 }
 ```
 
@@ -123,22 +103,6 @@ MIDDLEWARE = [  # Modern Django setting
     'treblle.middleware.TreblleMiddleware',
 ]
 ```
-
-#### 3. **Environment Variables (OPTIONAL)**
-
-**🆕 New in v2:** Support for environment-based configuration:
-```bash
-export TREBLLE_MASKED_FIELDS="api_key,password,credit_card"
-```
-
-### 🔄 Backward Compatibility
-
-**Good news!** v2 maintains backward compatibility:
-- ✅ Old `TREBLLE_INFO` format still works
-- ✅ Existing `MIDDLEWARE_CLASSES` still supported  
-- ✅ All v1 functionality preserved
-- ✅ No immediate migration required (but recommended)
-
 
 ---
 
@@ -160,31 +124,30 @@ TREBLLE = {
 }
 ```
 
-### Payload Size Limits
+### Route Exclusion
 
-To prevent memory issues and maintain API performance, Treblle limits payload sizes:
-
-- **Default limit**: 10MB for both request and response bodies
-- **Configurable**: Set custom limits via `MAX_PAYLOAD_SIZE` setting
-- **Behavior**: Large payloads are replaced with a descriptive message, but the request is still tracked
+You can exclude specific routes from being tracked by Treblle. This is useful for health checks, monitoring endpoints, or other routes that generate high-frequency, low-value traffic:
 
 ```python
 TREBLLE = {
     'SDK_TOKEN': 'your_token',
     'API_KEY': 'your_key',
-    'MAX_PAYLOAD_SIZE': 5 * 1024 * 1024,  # 5MB limit
+    'EXCLUDED_ROUTES': [
+        '/health/',           # Exact path match
+        '/api/health',        # Exact path match  
+        '/ping',              # Exact path match
+        '/admin/*',           # Wildcard: excludes /admin/login, /admin/users, etc.
+        '*/metrics',          # Wildcard: excludes /api/metrics, /internal/metrics, etc.
+        '/status/*',          # Wildcard: excludes anything under /status/
+    ],
 }
 ```
 
-**Note**: Headers, metadata, and other request/response data are always captured regardless of payload size.
+**Pattern matching:**
+- **Exact matches**: `/health/` only matches exactly `/health/`
+- **Wildcards**: Use `*` for flexible matching (e.g., `/admin/*` matches `/admin/login`, `/admin/users/1`)
+- **Debug logging**: Enable `DEBUG: True` to see which routes are being excluded
 
-**Backward compatibility:** The old `TREBLLE_INFO` format is still supported:
-```python
-TREBLLE_INFO = {
-    'api_key': os.environ.get('TREBLLE_SDK_TOKEN'),  # SDK Token
-    'project_id': os.environ.get('TREBLLE_API_KEY'),  # API Key  
-}
-```
 > See the [docs](https://docs.treblle.com/en/integrations/django) for this SDK to learn more.
 
 ### Getting Help
