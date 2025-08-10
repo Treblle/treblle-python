@@ -265,7 +265,7 @@ class TreblleMiddleware(object):
 		return {
 			"api_key": self.treblle_sdk_token,
 			"project_id": self.treblle_api_key,
-			"version": "2.0.0",
+			"version": "2.0.2",
 			"sdk": "django",
 			"data": {
 				"server": {
@@ -293,7 +293,7 @@ class TreblleMiddleware(object):
 					"headers": {},
 					"body": {},
 					"query": {},
-					"route_path": null
+					"route_path": None
 				},
 				"response": {
 					"headers": {},
@@ -323,6 +323,12 @@ class TreblleMiddleware(object):
 		request_body = request.body
 		response = self.get_response(request)
 		self.end_time = time.time()
+		
+		# Skip tracking redirect responses (301, 302, etc.) to avoid duplicate entries
+		if 300 <= response.status_code < 400:
+			if self.treblle_debug:
+				self.treblle_print(f"Skipping redirect response: {response.status_code} for {request.path_info}")
+			return response
 		
 		# Create fresh payload structure for this request (thread-safe)
 		final_result = self.create_payload_structure()
@@ -367,7 +373,7 @@ class TreblleMiddleware(object):
 				fallback_payload = {
 					"api_key": self.treblle_sdk_token,
 					"project_id": self.treblle_api_key,
-					"version": "2.0.0",
+					"version": "2.0.2",
 					"sdk": "django",
 					"data": {
 						"server": {"ip": "unknown", "timezone": "UTC", "software": None, "signature": "", "protocol": None, "os": {"name": None, "release": None, "architecture": None}},
@@ -423,7 +429,7 @@ class TreblleMiddleware(object):
 		except Exception as e:
 			final_result['data']['request']['route_path'] = None
 			if self.treblle_debug:
-				self.treblle_print(f'Could not resolve route pattern: {e}')
+				self.treblle_print(f'Could not resolve route pattern for path: {request.path_info}')
 
 		x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
 

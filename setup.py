@@ -10,18 +10,17 @@ if path.exists('README.md'):
 
 setuptools.setup(
     name='treblle',
-    version='2.0.0',
-    author='cindreta',
+    version='2.0.3',
+    author='Treblle',
     author_email='support@treblle.com',
-    description='Treblle SDK for Django - API monitoring and observability',
+    description='Treblle SDK for Django - Production-ready API monitoring and intelligence platform',
     long_description=long_description,
     long_description_content_type="text/markdown",
     url='https://github.com/Treblle/treblle-python',
     packages=setuptools.find_packages(),
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
@@ -46,11 +45,7 @@ setuptools.setup(
         'Topic :: System :: Monitoring',
     ],
     python_requires='>=3.7',
-    install_requires=[
-        'requests>=2.25.0', 
-        'Django>=2.2',
-    ],
-    keywords='treblle api monitoring django middleware observability',
+    keywords='treblle api monitoring django middleware observability analytics intelligence devops production thread-safe',
     project_urls={
         'Bug Reports': 'https://github.com/Treblle/treblle-python/issues',
         'Documentation': 'https://docs.treblle.com/en/integrations/django',

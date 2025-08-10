@@ -1,3 +1,53 @@
 [build-system]
 requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "treblle"
+version = "2.0.3"
+description = "Treblle SDK for Django - Production-ready API monitoring and intelligence platform"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Treblle", email = "support@treblle.com"}
+]
+maintainers = [
+    {name = "Treblle", email = "support@treblle.com"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Framework :: Django",
+    "Framework :: Django :: 2.2",
+    "Framework :: Django :: 3.0",
+    "Framework :: Django :: 3.1",
+    "Framework :: Django :: 3.2",
+    "Framework :: Django :: 4.0",
+    "Framework :: Django :: 4.1",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: System :: Monitoring",
+]
+keywords = ["treblle", "api", "monitoring", "django", "middleware", "observability", "analytics", "intelligence", "devops", "production", "thread-safe"]
+dependencies = [
+    "requests>=2.25.0",
+    "Django>=2.2",
+]
+requires-python = ">=3.7"
+
+[project.urls]
+Homepage = "https://treblle.com"
+Documentation = "https://docs.treblle.com/en/integrations/django"
+Repository = "https://github.com/Treblle/treblle-python"
+"Bug Reports" = "https://github.com/Treblle/treblle-python/issues"
+Changelog = "https://github.com/Treblle/treblle-python/releases"
