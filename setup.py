@@ -10,7 +10,7 @@ if path.exists('README.md'):
 
 setuptools.setup(
     name='treblle',
-    version='2.0.3',
+    version='2.0.4',
     author='Treblle',
     author_email='support@treblle.com',
     description='Treblle SDK for Django - Production-ready API monitoring and intelligence platform',

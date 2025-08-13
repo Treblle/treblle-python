@@ -5,3 +5,4 @@ treblle_middleware.egg-info/
 api/
 build/
 treblle_test_upload.egg-info/
+.DS_Store

@@ -85,6 +85,9 @@ class TreblleMiddleware(object):
 	MAX_PAYLOAD_SIZE = 10 * 1024 * 1024  # 10MB
 	PAYLOAD_TOO_LARGE_MESSAGE = "Treblle can only capture payloads up to 10MB in size. This payload was too large to capture."
 	
+	# Payload version constant
+	PAYLOAD_VERSION = 20
+	
 	@cached_property
 	def treblle_config(self):
 		"""Lazy load Treblle configuration from settings"""
@@ -265,7 +268,7 @@ class TreblleMiddleware(object):
 		return {
 			"api_key": self.treblle_sdk_token,
 			"project_id": self.treblle_api_key,
-			"version": "2.0.2",
+			"version": self.PAYLOAD_VERSION,
 			"sdk": "django",
 			"data": {
 				"server": {
@@ -373,7 +376,7 @@ class TreblleMiddleware(object):
 				fallback_payload = {
 					"api_key": self.treblle_sdk_token,
 					"project_id": self.treblle_api_key,
-					"version": "2.0.2",
+					"version": self.PAYLOAD_VERSION,
 					"sdk": "django",
 					"data": {
 						"server": {"ip": "unknown", "timezone": "UTC", "software": None, "signature": "", "protocol": None, "os": {"name": None, "release": None, "architecture": None}},
