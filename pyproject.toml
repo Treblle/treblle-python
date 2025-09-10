@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "treblle"
-version = "2.0.4"
+version = "2.0.6"
 description = "Treblle SDK for Django - Production-ready API monitoring and intelligence platform"
 readme = "README.md"
 license = "MIT"

@@ -4,7 +4,7 @@ Treblle SDK for Django - API Intelligence Platform
 A production-ready middleware for comprehensive API monitoring and observability.
 """
 
-__version__ = "2.0.4"
+__version__ = "2.0.6"
 __author__ = "Treblle"
 __email__ = "support@treblle.com"
 __url__ = "https://treblle.com"

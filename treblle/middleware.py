@@ -13,6 +13,7 @@ import random
 import re
 import os
 import gzip
+from urllib.parse import parse_qs
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -80,6 +81,64 @@ class TreblleMiddleware(object):
 	
 	# Default masked fields (class-level constant)
 	DEFAULT_MASKED_FIELDS = ["password", "pwd", "secret", "password_confirmation", "passwordConfirmation", "cc", "card_number", "cardNumber", "ccv","ssn", "credit_score", "creditScore"]
+	
+	# Static files and browser requests to automatically exclude (class-level constant)
+	DEFAULT_EXCLUDED_PATTERNS = [
+		# Browser files
+		"/favicon.ico",
+		"/robots.txt",
+		"/sitemap.xml",
+		"/manifest.json",
+		"/browserconfig.xml",
+		"/apple-touch-icon*",
+		"/mstile-*",
+		
+		# Static file extensions (common web assets)
+		"*.css",
+		"*.js", 
+		"*.ico",
+		"*.png",
+		"*.jpg",
+		"*.jpeg",
+		"*.gif",
+		"*.svg",
+		"*.webp",
+		"*.woff",
+		"*.woff2",
+		"*.ttf",
+		"*.eot",
+		"*.otf",
+		"*.map",
+		
+		# Static directories (common Django patterns)
+		"/static/*",
+		"/media/*",
+		"/assets/*",
+		"/public/*",
+		"/dist/*",
+		"/build/*",
+		
+		# Admin and debug (usually not API endpoints)
+		"/admin/*",
+		"/django-admin/*", 
+		"/__debug__/*",
+		"/debug/*",
+		
+		# Health checks and monitoring (unless specifically needed)
+		"/health",
+		"/healthz", 
+		"/ping",
+		"/status",
+		"/metrics",
+		
+		# Security files
+		"/.well-known/*",
+		"/security.txt",
+		
+		# Development files
+		"/hot-reload/*",
+		"/webpack-dev-server/*",
+	]
 	
 	# Payload size limit constant (10MB in bytes)
 	MAX_PAYLOAD_SIZE = 10 * 1024 * 1024  # 10MB
@@ -150,22 +209,35 @@ class TreblleMiddleware(object):
 			return [route.strip() for route in routes if route.strip()]
 		return []
 	
+	def _matches_pattern(self, path, pattern):
+		"""Check if a path matches a given pattern (supports wildcards)"""
+		# Exact match
+		if pattern == path:
+			return True
+		
+		# Wildcard pattern matching
+		if '*' in pattern:
+			import fnmatch
+			return fnmatch.fnmatch(path, pattern)
+		
+		return False
+	
 	def should_skip_route(self, path):
 		"""Check if the current request path should be excluded from tracking"""
-		if not self.excluded_routes:
-			return False
 		
-		for pattern in self.excluded_routes:
-			# Exact match
-			if pattern == path:
+		# Always check against default exclusion patterns (static files, browser requests, etc.)
+		for pattern in self.DEFAULT_EXCLUDED_PATTERNS:
+			if self._matches_pattern(path, pattern):
+				if self.treblle_debug:
+					self.treblle_print(f"Skipping static/browser request: {path} (matched pattern: {pattern})")
 				return True
-			
-			# Wildcard pattern matching
-			if '*' in pattern:
-				# Convert pattern to simple regex: * becomes .*
-				import fnmatch
-				if fnmatch.fnmatch(path, pattern):
-					return True
+		
+		# Check against user-configured excluded routes
+		for pattern in self.excluded_routes:
+			if self._matches_pattern(path, pattern):
+				if self.treblle_debug:
+					self.treblle_print(f"Skipping user-excluded route: {path} (matched pattern: {pattern})")
+				return True
 		
 		return False
 	@classmethod
@@ -393,6 +465,93 @@ class TreblleMiddleware(object):
 					self.treblle_print(f"Fallback JSON serialization also failed: {fallback_error}")
 				return '{"error":"critical_json_serialization_failure"}'
 
+	def parse_request_body(self, request, request_body):
+		"""
+		Parse request body based on Content-Type header
+		Supports: application/json, application/x-www-form-urlencoded, multipart/form-data
+		"""
+		if not request_body:
+			return {}
+		
+		# Get content type from headers
+		content_type = request.headers.get('content-type', '').lower()
+		
+		try:
+			# Handle JSON content
+			if 'application/json' in content_type:
+				body_str = request_body.decode('utf-8')
+				parsed_body = json.loads(body_str)
+				if isinstance(parsed_body, (dict, list)):
+					return self.mask_sensitive_data(parsed_body)
+				return parsed_body
+			
+			# Handle URL-encoded form data
+			elif 'application/x-www-form-urlencoded' in content_type:
+				body_str = request_body.decode('utf-8')
+				parsed_data = parse_qs(body_str, keep_blank_values=True)
+				# Convert single-item lists to strings for cleaner output
+				form_data = {}
+				for key, value_list in parsed_data.items():
+					if len(value_list) == 1:
+						form_data[key] = value_list[0]
+					else:
+						form_data[key] = value_list
+				return self.mask_sensitive_data(form_data)
+			
+			# Handle multipart form data
+			elif 'multipart/form-data' in content_type:
+				form_data = {}
+				
+				# Get form fields from Django's parsed POST data
+				if hasattr(request, 'POST') and request.POST:
+					for key, value_list in request.POST.lists():
+						if len(value_list) == 1:
+							form_data[key] = value_list[0]
+						else:
+							form_data[key] = value_list
+				
+				# Get file information from Django's parsed FILES data
+				if hasattr(request, 'FILES') and request.FILES:
+					files_data = {}
+					for field_name, file_obj in request.FILES.items():
+						# Don't capture file contents, just metadata
+						file_info = {
+							'name': getattr(file_obj, 'name', 'unknown'),
+							'size': getattr(file_obj, 'size', 0),
+							'content_type': getattr(file_obj, 'content_type', 'unknown')
+						}
+						files_data[field_name] = file_info
+					
+					if files_data:
+						form_data['_files'] = files_data
+				
+				return self.mask_sensitive_data(form_data) if form_data else {}
+			
+			# Handle other content types as raw text (fallback)
+			else:
+				try:
+					body_str = request_body.decode('utf-8')
+					# Try to parse as JSON in case content-type header is missing/wrong
+					try:
+						parsed_body = json.loads(body_str)
+						if isinstance(parsed_body, (dict, list)):
+							return self.mask_sensitive_data(parsed_body)
+						return parsed_body
+					except json.JSONDecodeError:
+						# Not JSON, return as string if it's reasonable length
+						if len(body_str) <= 1000:  # Limit raw text capture
+							return {'_raw_body': body_str}
+						else:
+							return {'_raw_body': f'<{len(body_str)} characters>'}
+				except UnicodeDecodeError:
+					# Binary data
+					return {'_binary_data': f'<{len(request_body)} bytes>'}
+		
+		except Exception as e:
+			if self.treblle_debug:
+				self.treblle_print(f"Failed to parse request body: {e}")
+			return {}
+
 	def handle_request(self, request, request_body, final_result):
 		"""
 		Function to handle each request
@@ -456,16 +615,12 @@ class TreblleMiddleware(object):
 				if self.treblle_debug:
 					self.treblle_print(f"Request body too large ({len(request_body)} bytes > {self.MAX_PAYLOAD_SIZE} bytes), replacing with size limit message")
 			else:
-				try:
-					body = request_body.decode('utf-8')
-					body = json.loads(body)
-					if isinstance(body, (dict, list)):
-						body = self.mask_sensitive_data(body)
-					final_result['data']['request']['body'] = body
-				except (json.JSONDecodeError, UnicodeDecodeError):
-					# Only valid JSON is sent - ignore non-JSON request bodies
-					if self.treblle_debug:
-						self.treblle_print("Request body is not valid JSON, ignoring")
+				# Parse request body based on content type
+				parsed_body = self.parse_request_body(request, request_body)
+				if parsed_body:
+					final_result['data']['request']['body'] = parsed_body
+				elif self.treblle_debug:
+					self.treblle_print("Request body could not be parsed or was empty")
 
 	def handle_response(self, request, response, final_result):
 		"""
