@@ -6,3 +6,4 @@ api/
 build/
 treblle_test_upload.egg-info/
 .DS_Store
+.idea

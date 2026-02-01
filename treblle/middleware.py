@@ -1,3 +1,4 @@
+from asgiref.sync import iscoroutinefunction, markcoroutinefunction
 from django.conf import settings
 from django.urls import resolve
 from functools import cached_property
@@ -67,6 +68,9 @@ class TreblleJSONEncoder(json.JSONEncoder):
 
 
 class TreblleMiddleware(object):
+	async_capable = True
+	sync_capable = True
+
 	# Class-level cached server info (computed once, shared across instances)
 	_server_info_cache = None
 	_cache_lock = threading.Lock()
@@ -316,6 +320,10 @@ class TreblleMiddleware(object):
 
 	def __init__(self, get_response):
 		self.get_response = get_response
+
+		# Run as coroutine if response is a coroutine, to avoid bottlenecks
+		if iscoroutinefunction(self.get_response):
+			markcoroutinefunction(self)
 		
 		# Initialize instance variables for thread safety
 		self.start_time = None
@@ -381,22 +389,22 @@ class TreblleMiddleware(object):
 			}
 		}
 	
-	def __call__(self, request):
+	async def __call__(self, request):
 		"""
 		Default function to handle requests and responses
 		"""
 		if not self.is_valid:
-			return self.get_response(request)
+			return await self.get_response(request)
 		
 		# Check if route should be excluded from tracking
 		if self.should_skip_route(request.path_info):
 			if self.treblle_debug:
 				self.treblle_print(f"Skipping route: {request.path_info}")
-			return self.get_response(request)
+			return await self.get_response(request)
 			
 		self.start_time = time.time()
 		request_body = request.body
-		response = self.get_response(request)
+		response = await self.get_response(request)
 		self.end_time = time.time()
 		
 		# Skip tracking redirect responses (301, 302, etc.) to avoid duplicate entries
